@@ -202,15 +202,16 @@ LOG_LINE_RE = re.compile(
 
 
 def _parse_ts(ts: str) -> datetime:
-    """Parse ISO-8601 timestamp (with or without timezone offset)."""
-    # Remove trailing timezone if present for simple parsing
-    ts_clean = re.sub(r"[+-]\d{2}:\d{2}$", "", ts)
-    for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
-        try:
-            return datetime.strptime(ts_clean, fmt)
-        except ValueError:
-            continue
-    return datetime.min
+    """Parse an ISO-8601 timestamp into a naive datetime.
+
+    Event timestamps carry a tz offset (e.g. -04:00) while log lines do not.
+    We drop any offset so all timestamps stay naive and remain comparable with
+    the (naive) --since/--until filters.
+    """
+    try:
+        return datetime.fromisoformat(ts).replace(tzinfo=None)
+    except ValueError:
+        return datetime.min
 
 
 def parse_log_lines(text: str) -> list:
