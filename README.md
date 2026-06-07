@@ -60,6 +60,7 @@ cd vcsrlp
 | `--output` / `-o` | filepath | Write output to a file instead of stdout |
 | `--summary` | — | Print a brief overview instead of full output |
 | `--no-color` | — | Disable ANSI colour output |
+| `--strict` | — | Fail if the decompressed size does not match the 4-byte length header |
 
 
 ---
@@ -99,6 +100,10 @@ python3 vcsrlp.py <logfile> [options]
 
 * `--no-color`
     Disable ANSI colour output.
+
+* `--strict`
+    Fail if the decompressed size does not match the 4-byte length header.
+    Without it, a mismatch only prints a warning to stderr.
 
 ---
 
@@ -161,9 +166,16 @@ python3 vcsrlp.py <logfile> [options]
 In case you want to build on this or write your own parser:
 
 ```
-Offset 0-3   : 4-byte header (content unused, possibly a version marker)
+Offset 0-3   : uint32 big-endian (MSB-first) length, in BYTES, of the
+               decompressed payload
 Offset 4-end : zlib-compressed UTF-8 text
 ```
+
+The 4-byte length prefix lets a streaming reader pre-size its output buffer and
+lets you verify the file extracted intact. Note it counts **bytes** of the
+decompressed payload, not characters — UTF-8 multibyte characters mean the
+decoded character count is smaller. Pass `--strict` to turn a size mismatch
+(truncated or corrupt file) into a hard error instead of a stderr warning.
 
 The decompressed text is split into sections by banner lines:
 

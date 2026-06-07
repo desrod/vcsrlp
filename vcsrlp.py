@@ -6,7 +6,8 @@ Parses the binary .log files produced by VictronConnect (iOS/Android).
 
 File format
 -----------
-  Bytes 0-3  : 4-byte header (ignored)
+  Bytes 0-3  : uint32 big-endian (MSB-first) length, in BYTES, of the
+               decompressed payload (used to verify the file extracted intact)
   Bytes 4-end: zlib-compressed UTF-8 text
 
 The decompressed text contains named sections, each opened by a banner:
@@ -41,6 +42,8 @@ Options
   --output     FILE
                Write output to a file instead of stdout
   --summary    Print a summary of counts instead of full content
+  --strict     Fail if the decompressed size does not match the 4-byte
+               length header (otherwise a mismatch only warns on stderr)
 """
 
 import argparse
@@ -118,15 +121,42 @@ class ParsedLog:
 # ---------------------------------------------------------------------------
 
 
-def decompress(path: Path) -> str:
-    """Read and decompress a VictronConnect .log file."""
+def decompress(path: Path, strict: bool = False) -> str:
+    """Read and decompress a VictronConnect .log file.
+
+    File layout:
+        bytes 0-3 : uint32 big-endian (MSB-first) length of the decompressed
+                    payload, in BYTES (not characters).
+        bytes 4-  : zlib-compressed UTF-8 text.
+
+    The length prefix lets a streaming reader pre-size its buffer and lets us
+    verify the file was extracted intact. If the decompressed byte count does
+    not match the header, the file is likely truncated or corrupt: a warning is
+    printed to stderr, or a ValueError is raised when ``strict`` is True.
+    """
     raw = path.read_bytes()
-    if len(raw) < 5:
-        raise ValueError("File too small to be a valid VictronConnect log.")
+    if len(raw) < 4:
+        raise ValueError("File too small to contain a 4-byte length header.")
+
+    expected_len = int.from_bytes(raw[:4], "big")
+
     try:
-        return zlib.decompress(raw[4:]).decode("utf-8", errors="replace")
+        payload = zlib.decompress(raw[4:])
     except zlib.error as exc:
         raise ValueError(f"Failed to decompress log file: {exc}") from exc
+
+    # Validate on BYTES, before decoding — UTF-8 multibyte characters make the
+    # decoded character count smaller than the raw byte count.
+    if len(payload) != expected_len:
+        msg = (
+            f"Length mismatch: header declares {expected_len:,} bytes, "
+            f"decompressed {len(payload):,}. File may be truncated or corrupt."
+        )
+        if strict:
+            raise ValueError(msg)
+        print(f"Warning: {msg}", file=sys.stderr)
+
+    return payload.decode("utf-8", errors="replace")
 
 
 # ---------------------------------------------------------------------------
@@ -266,8 +296,8 @@ def parse_networking(text: str) -> list:
 # ---------------------------------------------------------------------------
 
 
-def parse_log(path: Path) -> ParsedLog:
-    text = decompress(path)
+def parse_log(path: Path, strict: bool = False) -> ParsedLog:
+    text = decompress(path, strict=strict)
     sections = split_sections(text)
     result = ParsedLog()
 
@@ -467,6 +497,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--summary", action="store_true", help="Print summary statistics only"
     )
     p.add_argument("--no-color", action="store_true", help="Disable ANSI color output")
+    p.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail if the decompressed size does not match the 4-byte length header",
+    )
     return p
 
 
@@ -479,7 +514,7 @@ def main():
 
     print(f"Reading {args.logfile} …", file=sys.stderr)
     try:
-        log = parse_log(args.logfile)
+        log = parse_log(args.logfile, strict=args.strict)
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
