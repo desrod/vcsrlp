@@ -249,9 +249,9 @@ def parse_events(text: str) -> list:
                 serial=row[2],
                 pid=row[3],
                 event_type=row[4],
-                path=row[5] if len(row) > 5 else "",
-                old_value=row[6] if len(row) > 6 else "",
-                new_value=row[7] if len(row) > 7 else "",
+                path=row[5],
+                old_value=row[6],
+                new_value=row[7],
                 raw=",".join(row),
             )
         )
