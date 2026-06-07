@@ -286,9 +286,7 @@ def parse_products(text: str) -> list:
 
 
 def parse_networking(text: str) -> list:
-    return _parse_table(
-        text, 3, lambda r: NetworkEntry(id=r[0], key=r[1], name=r[2])
-    )
+    return _parse_table(text, 3, lambda r: NetworkEntry(id=r[0], key=r[1], name=r[2]))
 
 
 # ---------------------------------------------------------------------------
@@ -446,7 +444,9 @@ def print_summary(log: ParsedLog, out):
 
     valid_ts = [e.timestamp for e in log.events if e.timestamp != datetime.min]
     if valid_ts:
-        out.write(f"  Event span    : {min(valid_ts).date()} → {max(valid_ts).date()}\n")
+        out.write(
+            f"  Event span    : {min(valid_ts).date()} → {max(valid_ts).date()}\n"
+        )
 
     if log.products:
         out.write("  Products:\n")
