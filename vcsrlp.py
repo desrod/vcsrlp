@@ -134,6 +134,7 @@ def decompress(path: Path, strict: bool = False) -> str:
     not match the header, the file is likely truncated or corrupt: a warning is
     printed to stderr, or a ValueError is raised when ``strict`` is True.
     """
+    path = Path(path)  # accept either a str or a Path
     raw = path.read_bytes()
     if len(raw) < 4:
         raise ValueError("File too small to contain a 4-byte length header.")
