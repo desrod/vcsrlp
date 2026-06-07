@@ -194,7 +194,7 @@ def parse_header(text: str) -> LogHeader:
 
 
 LOG_LINE_RE = re.compile(
-    r"^(DEBUG|WARN |INFO |ERROR)\s"
+    r"^(DEBUG|INFO|WARN|ERROR)\s+"  # level (\s+ absorbs the column padding)
     r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+)\s"
     r"(?:\[([^\]]+)\]\s)?"
     r"(.*)"
@@ -222,7 +222,7 @@ def parse_log_lines(text: str) -> list:
             level, ts_raw, module, message = m.groups()
             lines.append(
                 LogLine(
-                    level=level.strip(),
+                    level=level,
                     timestamp=_parse_ts(ts_raw),
                     timestamp_raw=ts_raw,
                     module=module,
