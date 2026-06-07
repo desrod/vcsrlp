@@ -444,10 +444,9 @@ def print_summary(log: ParsedLog, out):
     out.write(f"  Events        : {len(log.events):,}\n")
     out.write(f"  Known products: {len(log.products)}\n")
 
-    if log.events:
-        ts_first = min(e.timestamp for e in log.events if e.timestamp != datetime.min)
-        ts_last = max(e.timestamp for e in log.events if e.timestamp != datetime.min)
-        out.write(f"  Event span    : {ts_first.date()} → {ts_last.date()}\n")
+    valid_ts = [e.timestamp for e in log.events if e.timestamp != datetime.min]
+    if valid_ts:
+        out.write(f"  Event span    : {min(valid_ts).date()} → {max(valid_ts).date()}\n")
 
     if log.products:
         out.write("  Products:\n")
