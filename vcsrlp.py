@@ -269,28 +269,26 @@ def _parse_pipe_table(text: str) -> list:
     return rows
 
 
-def parse_products(text: str) -> list:
+def _parse_table(text: str, ncols: int, factory) -> list:
+    """Build objects from a pipe-delimited table.
+
+    The first surviving row is treated as the column header and skipped; each
+    remaining row with at least ``ncols`` columns is passed to ``factory``.
+    """
     rows = _parse_pipe_table(text)
-    products = []
-    for i, row in enumerate(rows):
-        if i == 0:  # header row
-            continue
-        if len(row) >= 4:
-            products.append(
-                Product(name=row[0], custom_name=row[1], pid=row[2], serial=row[3])
-            )
-    return products
+    return [factory(r) for r in rows[1:] if len(r) >= ncols]
+
+
+def parse_products(text: str) -> list:
+    return _parse_table(
+        text, 4, lambda r: Product(name=r[0], custom_name=r[1], pid=r[2], serial=r[3])
+    )
 
 
 def parse_networking(text: str) -> list:
-    rows = _parse_pipe_table(text)
-    entries = []
-    for i, row in enumerate(rows):
-        if i == 0:
-            continue
-        if len(row) >= 3:
-            entries.append(NetworkEntry(id=row[0], key=row[1], name=row[2]))
-    return entries
+    return _parse_table(
+        text, 3, lambda r: NetworkEntry(id=r[0], key=r[1], name=r[2])
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -333,30 +331,31 @@ def _dt_arg(s: str) -> datetime:
     )
 
 
+def _passes_time_search(item, since, until, search) -> bool:
+    """Shared time-range and text-search test (item needs .timestamp/.raw)."""
+    if since and item.timestamp < since:
+        return False
+    if until and item.timestamp > until:
+        return False
+    if search and search.lower() not in item.raw.lower():
+        return False
+    return True
+
+
 def filter_logs(lines, level=None, module=None, since=None, until=None, search=None):
     for ln in lines:
         if level and ln.level != level:
             continue
         if module and (ln.module is None or module.upper() not in ln.module.upper()):
             continue
-        if since and ln.timestamp < since:
-            continue
-        if until and ln.timestamp > until:
-            continue
-        if search and search.lower() not in ln.raw.lower():
-            continue
-        yield ln
+        if _passes_time_search(ln, since, until, search):
+            yield ln
 
 
 def filter_events(events, since=None, until=None, search=None):
     for ev in events:
-        if since and ev.timestamp < since:
-            continue
-        if until and ev.timestamp > until:
-            continue
-        if search and search.lower() not in ev.raw.lower():
-            continue
-        yield ev
+        if _passes_time_search(ev, since, until, search):
+            yield ev
 
 
 # ---------------------------------------------------------------------------
