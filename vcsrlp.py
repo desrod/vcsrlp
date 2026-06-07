@@ -431,7 +431,7 @@ def print_summary(log: ParsedLog, out):
         )
         out.write(
             f"  Device        : {log.header.fields.get('Product name', '?')} "
-            f"iOS {log.header.fields.get('Version', '?')}\n"
+            f"{log.header.fields.get('Version', '?')}\n"
         )
 
     levels = {}
